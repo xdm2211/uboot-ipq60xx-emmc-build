@@ -263,6 +263,17 @@ input[type="submit"]:hover {
     font-size: 1.2rem;
 }
 
+.error-message-404 {
+    background: linear-gradient(135deg, rgba(255, 231, 231, 0.15) 0%, rgba(254, 113, 113, 0.1) 100%);
+    border-left: 4px solid #e74c3c;
+    padding: 25px;
+    border-radius: 8px;
+    margin: 25px 0;
+    text-align: center;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    color: #ffcccc;
+}
+
 .error-icon {
     font-size: 4rem;
     color: #e74c3c;
