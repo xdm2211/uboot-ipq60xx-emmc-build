@@ -65,6 +65,7 @@ dtb-$(CONFIG_ARCH_IPQ6018) += ipq6018-cp01-c1.dtb \
 			ipq6018-cp03-c1.dtb \
 			ipq6018-cp03-c2.dtb \
 			ipq6018-cp03-c3.dtb \
+			ipq6018-cp03-c4.dtb \
 			ipq6018-db-cp01.dtb \
 			ipq6018-db-cp02.dtb
 

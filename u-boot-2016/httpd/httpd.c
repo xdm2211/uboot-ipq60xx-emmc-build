@@ -251,9 +251,14 @@ static int httpd_findandstore_firstchunk(void){
 						//For JDCloud AX6600 Athena ART 512 KiB
 						art_size = WEBFAILSAFE_UPLOAD_ART_BIG_SIZE_IN_BYTES;
 
+					} else if(strcmp(getenv("machid"), "8030203") == 0){
+						//For JDCloud ER1 ART 512 KiB
+						art_size = WEBFAILSAFE_UPLOAD_ART_BIG_SIZE_IN_BYTES;
+
 					} else {
 						art_size = WEBFAILSAFE_UPLOAD_ART_SIZE_IN_BYTES;
 					}
+
 					if (hs->upload_total > art_size){
 						printf("## Error: wrong file size, should be less than or equal to: %d bytes!\n", art_size);
 						webfailsafe_upload_failed = 1;
