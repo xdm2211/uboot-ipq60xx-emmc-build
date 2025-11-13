@@ -34,9 +34,9 @@ setup_build_info() {
     local unified_time=$(TZ=UTC-8 date +"%s")
 
     export COMPILE_DATE=$(TZ=UTC-8 date -d "@$unified_time" +"%y.%m.%d-%H.%M.%S")
-    export UBOOT_VERSION=$(TZ=UTC-8 date -d "@$unified_time" +"%y%m%d.%H%M%S")
+    export uboot_version=$(TZ=UTC-8 date -d "@$unified_time" +"%y%m%d.%H%M%S")
 
-    echo "设置版本号: $UBOOT_VERSION"
+    echo "设置版本号: $uboot_version"
     echo "设置编译时间: $COMPILE_DATE"
 }
 
@@ -49,6 +49,48 @@ setup_build_env() {
     export STAGING_DIR="${SCRIPT_DIR}/staging_dir"
     export HOSTLDFLAGS="-L${STAGING_DIR}/usr/lib -znow -zrelro -pie"
     export PATH="${STAGING_DIR}/toolchain-arm_cortex-a7_gcc-5.2.0_musl-1.1.16_eabi/bin:$PATH"
+}
+
+# 文件大小检查和填充函数
+check_and_pad_file() {
+    local file_path=$1
+    local target_name=$2
+
+    if [ ! -f "$file_path" ]; then
+        echo "错误: 文件不存在: $file_path"
+        return 1
+    fi
+
+    local current_size_bytes=$(stat -c%s "$file_path")
+    local target_size_bytes=655360  # 640KB = 655360 Bytes
+
+    echo "文件检查: $target_name"
+    echo "文    件：$(basename "$file_path")"
+    echo "当前大小：$current_size_bytes Bytes"
+    echo "目标大小：$target_size_bytes Bytes"
+
+    if [ $current_size_bytes -lt $target_size_bytes ]; then
+        echo "文件当前大小小于目标大小，正在填充..."
+        truncate -s $target_size_bytes "$file_path"
+        local new_size_bytes=$(stat -c%s "$file_path")
+        echo "填充完成！新大小：$new_size_bytes Bytes"
+    elif [ $current_size_bytes -eq $target_size_bytes ]; then
+        echo "文件已经是目标大小！"
+    else
+        echo "WARNING！文件当前大小大于目标大小！"
+        echo "这可能导致刷写失败，建议检查编译配置。"
+    fi
+}
+
+# 文件检查函数（用于命令行调用）
+check_file_size() {
+    local file_path=$1
+    if [ -z "$file_path" ]; then
+        echo "用法: $0 check_file_size <文件路径>"
+        return 1
+    fi
+
+    check_and_pad_file "$file_path" "手动检查"
 }
 
 # 清理编译过程中产生的缓存
@@ -139,8 +181,12 @@ compile_target_after_cache_clean() {
     echo "转换 elf 到 mbn"
     python3 scripts_mbn/elftombn.py -f ./u-boot -o ./u-boot.mbn -v 6
 
-    echo "移动 u-boot.mbn 到根目录并重命名为 uboot-ipq60xx-emmc-${target_name}-${UBOOT_VERSION}.bin"
-    mv ./u-boot.mbn "${SCRIPT_DIR}/uboot-ipq60xx-emmc-${target_name}-${UBOOT_VERSION}.bin"
+	local output_file="${SCRIPT_DIR}/uboot-ipq60xx-emmc-${target_name}-${uboot_version}.bin"
+    echo "移动 u-boot.mbn 到根目录并重命名为 $(basename "$output_file")"
+    mv ./u-boot.mbn "$output_file"
+
+    # 调用文件大小检查和填充函数
+    check_and_pad_file "$output_file" "$target_name"
 
     echo "编译完成: $target_name"
     echo " "
@@ -183,16 +229,17 @@ show_help() {
     echo "用法: $0 [选项]"
     echo ""
     echo "选项:"
-    echo "  help                   显示此帮助信息"
-    echo "  setup_env              仅设置编译环境"
-    echo "  clean_cache            清理编译过程中产生的缓存"
-    echo "  build_re-cs-02         编译 JDCloud AX6600 (Athena)"
-    echo "  build_re-cs-07         编译 JDCloud ER1"
-    echo "  build_re-ss-01         编译 JDCloud AX1800 Pro (Arthur)"
-    echo "  build_nn6000-v1        编译 Link NN6000 V1"
-    echo "  build_nn6000-v2        编译 Link NN6000 V2"
-    echo "  build_ax5-jdcloud      编译 Redmi AX5 JDCloud"
-    echo "  build_all              编译所有支持的板卡"
+    echo "  help                    显示此帮助信息"
+    echo "  setup_env               仅设置编译环境"
+	echo "  check_file_size <文件>  检查并调整文件大小至 640KB (655360 Bytes)"
+    echo "  clean_cache             清理编译过程中产生的缓存"
+    echo "  build_re-cs-02          编译 JDCloud AX6600 (Athena)"
+    echo "  build_re-cs-07          编译 JDCloud ER1"
+    echo "  build_re-ss-01          编译 JDCloud AX1800 Pro (Arthur)"
+    echo "  build_nn6000-v1         编译 Link NN6000 V1"
+    echo "  build_nn6000-v2         编译 Link NN6000 V2"
+    echo "  build_ax5-jdcloud       编译 Redmi AX5 JDCloud"
+    echo "  build_all               编译所有支持的板卡"
 }
 
 # 主逻辑 - 使用 case 语句
@@ -200,6 +247,10 @@ case "$1" in
     "setup_env")
         setup_build_env
   		echo "编译环境设置完成"
+        ;;
+
+    "check_file_size")
+        check_file_size "$2"
         ;;
 
     "clean_cache")
