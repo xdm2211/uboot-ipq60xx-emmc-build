@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # 获取脚本所在目录的绝对路径
 if [ -n "$GITHUB_WORKSPACE" ]; then
@@ -28,6 +28,33 @@ if [ ! -d "${SCRIPT_DIR}/staging_dir" ]; then
     exit 1
 fi
 
+# 日志文件设置
+LOG_FILE=""
+setup_logging() {
+    if [ -z "$LOG_FILE" ]; then
+        LOG_FILE="${SCRIPT_DIR}/log-${COMPILE_DATE}.txt"
+        echo "日志文件: $(basename "$LOG_FILE")"
+        echo "==========================================" >> "$LOG_FILE"
+        echo "编译开始时间: $(TZ=UTC-8 date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
+        echo "编译版本号: $uboot_version" >> "$LOG_FILE"
+        echo "==========================================" >> "$LOG_FILE"
+    fi
+}
+
+# 日志输出函数
+log_message() {
+    local message="$*"
+    local timestamp=$(TZ=UTC-8 date '+%Y-%m-%d %H:%M:%S')
+
+    # 输出到标准输出
+    echo "$message"
+
+    # 输出到日志文件（带时间戳）
+    if [ -n "$LOG_FILE" ]; then
+        echo "[$timestamp] $message" >> "$LOG_FILE"
+    fi
+}
+
 # 设置编译时间信息
 setup_build_info() {
     # 使用同一时间戳确保完全一致
@@ -36,13 +63,16 @@ setup_build_info() {
     export COMPILE_DATE=$(TZ=UTC-8 date -d "@$unified_time" +"%y.%m.%d-%H.%M.%S")
     export uboot_version=$(TZ=UTC-8 date -d "@$unified_time" +"%y%m%d.%H%M%S")
 
-    echo "设置版本号: $uboot_version"
-    echo "设置编译时间: $COMPILE_DATE"
+    log_message "设置版本号: $uboot_version"
+    log_message "设置编译时间: $COMPILE_DATE"
+
+    # 设置日志文件
+    setup_logging
 }
 
 # 设置编译环境函数
 setup_build_env() {
-    echo "设置编译环境"
+    log_message "设置编译环境"
     export ARCH=arm
     export TARGETCC=arm-openwrt-linux-gcc
     export CROSS_COMPILE=arm-openwrt-linux-
@@ -57,28 +87,28 @@ check_and_pad_file() {
     local target_name=$2
 
     if [ ! -f "$file_path" ]; then
-        echo "错误: 文件不存在: $file_path"
+        log_message "错误: 文件不存在: $file_path"
         return 1
     fi
 
     local current_size_bytes=$(stat -c%s "$file_path")
     local target_size_bytes=655360  # 640KB = 655360 Bytes
 
-    echo "文件检查: $target_name"
-    echo "文    件：$(basename "$file_path")"
-    echo "当前大小：$current_size_bytes Bytes"
-    echo "目标大小：$target_size_bytes Bytes"
+    log_message "文件检查: $target_name"
+    log_message "文    件: $(basename "$file_path")"
+    log_message "当前大小: $current_size_bytes Bytes"
+    log_message "目标大小: $target_size_bytes Bytes"
 
     if [ $current_size_bytes -lt $target_size_bytes ]; then
-        echo "文件当前大小小于目标大小，正在填充..."
+        log_message "文件当前大小小于目标大小，正在填充..."
         truncate -s $target_size_bytes "$file_path"
         local new_size_bytes=$(stat -c%s "$file_path")
-        echo "填充完成！新大小：$new_size_bytes Bytes"
+        log_message "填充完成! 新大小: $new_size_bytes Bytes"
     elif [ $current_size_bytes -eq $target_size_bytes ]; then
-        echo "文件已经是目标大小！"
+        log_message "文件已经是目标大小!"
     else
-        echo "WARNING！文件当前大小大于目标大小！"
-        echo "这可能导致刷写失败，建议检查编译配置。"
+        log_message "WARNING! 文件当前大小大于目标大小!"
+        log_message "这可能导致刷写失败，建议检查编译配置"
     fi
 }
 
@@ -86,7 +116,7 @@ check_and_pad_file() {
 check_file_size() {
     local file_path=$1
     if [ -z "$file_path" ]; then
-        echo "用法: $0 check_file_size <文件路径>"
+        log_message "用法: $0 check_file_size <文件路径>"
         return 1
     fi
 
@@ -154,42 +184,53 @@ compile_target_after_cache_clean() {
     local target_name=$1
     local config_name=$2
 
-    echo "编译目标: $target_name"
+    log_message "编译目标: $target_name"
 
     # 清理编译缓存
-    echo "清理编译缓存"
+    log_message "清理编译缓存"
     clean_cache
 
     # 设置编译环境
     setup_build_env
 
-    echo "进入编译根目录"
+    log_message "进入编译目录"
     cd "${SCRIPT_DIR}/u-boot-2016/"
 
-    echo "构建配置: $config_name"
+    log_message "构建配置: $config_name"
     make ${config_name}_defconfig
-    make V=s
 
-    if [ $? -ne 0 ]; then
-        echo "错误: 编译失败!"
+    log_message "开始编译"
+    if [ -n "$LOG_FILE" ]; then
+        # 同时输出到屏幕和日志文件
+        make V=s 2>&1 | tee -a "$LOG_FILE"
+        # 获取 make 命令的退出状态
+        MAKE_EXIT_STATUS=${PIPESTATUS[0]}
+    else
+        # 如果没有日志文件，正常执行
+        make V=s
+        MAKE_EXIT_STATUS=$?
+    fi
+
+    if [ $MAKE_EXIT_STATUS -ne 0 ]; then
+        log_message "错误: 编译失败!"
         exit 1
     fi
 
-    echo "Strip elf"
+    log_message "Strip elf"
     arm-openwrt-linux-strip u-boot
 
-    echo "转换 elf 到 mbn"
+    log_message "转换 elf 到 mbn"
     python3 scripts_mbn/elftombn.py -f ./u-boot -o ./u-boot.mbn -v 6
 
 	local output_file="${SCRIPT_DIR}/uboot-ipq60xx-emmc-${target_name}-${uboot_version}.bin"
-    echo "移动 u-boot.mbn 到根目录并重命名为 $(basename "$output_file")"
+    log_message "移动 u-boot.mbn 到根目录并重命名"
     mv ./u-boot.mbn "$output_file"
 
     # 调用文件大小检查和填充函数
     check_and_pad_file "$output_file" "$target_name"
 
-    echo "编译完成: $target_name"
-    echo " "
+    log_message "编译完成: $target_name"
+    log_message " "
 
     # 返回脚本目录
     cd "$SCRIPT_DIR"
@@ -206,14 +247,12 @@ compile_single_target() {
 
 # 编译所有目标
 compile_all_targets() {
-    echo "编译所有支持的板卡..."
-
-    # 一次性设置版本号，确保所有板卡版本一致
+    # 一次性设置版本号，确保所有文件版本一致
     setup_build_info
 
-    echo " "
+    log_message "编译所有支持的设备"
 
-    # 依次编译所有板卡
+    # 依次编译所有设备
     compile_target_after_cache_clean "jdcloud_re-cs-02"  "ipq6018_jdcloud_re_cs_02"
     compile_target_after_cache_clean "jdcloud_re-cs-07"  "ipq6018_jdcloud_re_cs_07"
     compile_target_after_cache_clean "jdcloud_re-ss-01"  "ipq6018_jdcloud_re_ss_01"
@@ -221,7 +260,7 @@ compile_all_targets() {
     compile_target_after_cache_clean "link_nn6000-v2"    "ipq6018_link_nn6000_v2"
     compile_target_after_cache_clean "redmi_ax5-jdcloud" "ipq6018_redmi_ax5_jdcloud"
 
-    echo "所有板卡编译完成!"
+    log_message "所有设备编译完成!"
 }
 
 # 帮助文档函数
@@ -239,7 +278,7 @@ show_help() {
     echo "  build_nn6000-v1         编译 Link NN6000 V1"
     echo "  build_nn6000-v2         编译 Link NN6000 V2"
     echo "  build_ax5-jdcloud       编译 Redmi AX5 JDCloud"
-    echo "  build_all               编译所有支持的板卡"
+    echo "  build_all               编译所有支持的设备"
 }
 
 # 主逻辑 - 使用 case 语句
@@ -250,10 +289,12 @@ case "$1" in
         ;;
 
     "check_file_size")
+        # 对于非编译操作，不设置日志文件
         check_file_size "$2"
         ;;
 
     "clean_cache")
+        # 对于非编译操作，不设置日志文件
         clean_cache
         echo "编译缓存清理完成!"
         ;;
@@ -294,5 +335,16 @@ case "$1" in
         echo "错误: 未知选项 '$1'"
         echo "使用 '$0 help' 查看可用选项"
         exit 1
+        ;;
+esac
+
+# 记录编译操作的结束
+case "$1" in
+    "build_re-cs-02"|"build_re-cs-07"|"build_re-ss-01"|"build_nn6000-v1"|"build_nn6000-v2"|"build_ax5-jdcloud"|"build_all")
+        if [ -n "$LOG_FILE" ]; then
+            echo "==========================================" >> "$LOG_FILE"
+            echo "编译结束时间: $(TZ=UTC-8 date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
+            echo "==========================================" >> "$LOG_FILE"
+        fi
         ;;
 esac
