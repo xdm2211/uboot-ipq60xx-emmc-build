@@ -33,22 +33,23 @@ sudo apt install -y build-essential device-tree-compiler
 git clone https://github.com/chenxin527/uboot-ipq60xx-emmc-build.git
 ```
 
-3. 查看编译指令
+3. 编译你需要的设备
 
 ```
 用法: ./build.sh [选项]
 
 选项:
-  help                   显示此帮助信息
-  setup_env              仅设置编译环境
-  clean_cache            清理编译过程中产生的缓存
-  build_re-cs-02         编译 JDCloud AX6600 (Athena)
-  build_re-cs-07         编译 JDCloud ER1
-  build_re-ss-01         编译 JDCloud AX1800 Pro (Arthur)
-  build_nn6000-v1        编译 Link NN6000 V1
-  build_nn6000-v2        编译 Link NN6000 V2
-  build_ax5-jdcloud      编译 Redmi AX5 JDCloud
-  build_all              编译所有支持的板卡
+  help                    显示此帮助信息
+  setup_env               仅设置编译环境
+  check_file_size <文件>  检查并调整文件大小至 640KB (655360 Bytes)
+  clean_cache             清理编译过程中产生的缓存
+  build_re-cs-02          编译 JDCloud AX6600 (Athena)
+  build_re-cs-07          编译 JDCloud ER1
+  build_re-ss-01          编译 JDCloud AX1800 Pro (Arthur)
+  build_nn6000-v1         编译 Link NN6000 V1
+  build_nn6000-v2         编译 Link NN6000 V2
+  build_ax5-jdcloud       编译 Redmi AX5 JDCloud
+  build_all               编译所有支持的设备
 ```
 
 ### 云编译
