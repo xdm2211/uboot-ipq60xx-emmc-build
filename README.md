@@ -2,6 +2,8 @@
 
 u-boot-2016 源代码基于：https://github.com/gl-inet/uboot-ipq60xx
 
+**NOR** 机型 U-Boot 仓库：https://github.com/chenxin527/uboot-ipq60xx-nor-build
+
 ## 适配设备
 
 本项目已适配以下 IPQ60xx **eMMC** 机型：
