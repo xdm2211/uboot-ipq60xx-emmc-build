@@ -1,6 +1,6 @@
 ## 📋 更新日志
 
-### 📅 [xx.xx.xx](https://github.com/chenxin527/uboot-ipq60xx-emmc-build//tags/)
+### 📅 [25.12.16-15.26.27](https://github.com/chenxin527/uboot-ipq60xx-emmc-build/releases/tag/25.12.16-15.26.27)
 
 #### ✨ 功能更新
 
